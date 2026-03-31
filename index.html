@@ -812,7 +812,28 @@
                     );
                     if (uploadRes.ok) {
                         const uploaded = await uploadRes.json();
-                        receiptUrl = uploaded.webUrl || 'uploaded';
+                        // Generate a short sharing link instead of the raw file path
+                        try {
+                            const linkRes = await fetch(
+                                `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/items/${uploaded.id}/createLink`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${accessToken}`,
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ type: 'view', scope: 'organization' })
+                                }
+                            );
+                            if (linkRes.ok) {
+                                const linkData = await linkRes.json();
+                                receiptUrl = linkData.link?.webUrl || uploaded.webUrl;
+                            } else {
+                                receiptUrl = uploaded.webUrl;
+                            }
+                        } catch {
+                            receiptUrl = uploaded.webUrl;
+                        }
                     }
                 }
                 expenseLines.push(`${expense.desc || '(no description)'}: $${expense.amount.toFixed(2)} | Receipt: ${receiptUrl}`);
