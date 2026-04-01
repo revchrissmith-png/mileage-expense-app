@@ -377,11 +377,54 @@
             text-align: center;
         }
 
+        .payment-options {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 0;
+        }
+
+        .payment-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .payment-option:has(input:checked) {
+            border-color: var(--primary);
+            background: rgba(0,120,212,0.05);
+        }
+
+        .payment-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .payment-option span {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        #etransferEmailField {
+            display: none;
+            margin-top: 14px;
+        }
+
         @media (max-width: 380px) {
             .expense-row { flex-direction: column; gap: 8px; }
             .expense-row .field.amount { flex: 1; }
             .totals-grid { grid-template-columns: 1fr; }
             .total-box.grand { grid-column: 1; }
+            .payment-options { flex-direction: column; }
         }
     </style>
 </head>
@@ -491,6 +534,27 @@
         <div class="field">
             <label>Notes (optional)</label>
             <textarea id="notes" placeholder="Any additional details..."></textarea>
+        </div>
+    </div>
+
+    <!-- Payment Method -->
+    <div class="card">
+        <div class="card-title">Payment Method</div>
+        <div class="field">
+            <div class="payment-options">
+                <label class="payment-option">
+                    <input type="radio" name="paymentMethod" value="Cheque" id="payCheque" checked onchange="toggleEtransfer()">
+                    <span>Cheque</span>
+                </label>
+                <label class="payment-option">
+                    <input type="radio" name="paymentMethod" value="E-Transfer" id="payEtransfer" onchange="toggleEtransfer()">
+                    <span>E-Transfer</span>
+                </label>
+            </div>
+            <div id="etransferEmailField" class="field">
+                <label>E-Transfer Email Address</label>
+                <input type="email" id="etransferEmail" placeholder="email@example.com">
+            </div>
         </div>
     </div>
 
@@ -711,15 +775,25 @@
         document.getElementById('grandTotal').textContent = `$${grandTotal.toFixed(2)}`;
     }
 
+    // ========== PAYMENT METHOD ==========
+    function toggleEtransfer() {
+        const isEtransfer = document.getElementById('payEtransfer').checked;
+        document.getElementById('etransferEmailField').style.display = isEtransfer ? 'block' : 'none';
+        document.getElementById('etransferEmail').required = isEtransfer;
+    }
+
     // ========== SUBMIT ==========
     async function submitClaim() {
         const claimCategory = document.getElementById('claimCategory').value;
         const purpose = document.getElementById('purpose').value.trim();
         const claimDate = document.getElementById('claimDate').value;
         const notes = document.getElementById('notes').value.trim();
+        const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+        const etransferEmail = document.getElementById('etransferEmail').value.trim();
 
         if (!purpose) { showToast('Please enter the purpose / details.'); return; }
         if (!claimDate) { showToast('Please select a date.'); return; }
+        if (paymentMethod === 'E-Transfer' && !etransferEmail) { showToast('Please enter your e-transfer email address.'); return; }
 
         const days = document.querySelectorAll('.travel-day');
         if (days.length === 0) { showToast('Please add at least one travel day.'); return; }
@@ -856,7 +930,9 @@
                     ExpenseDetails: expenseDetails,
                     ExpenseTotal: totalExpenseDollars,
                     GrandTotal: grandTotal,
-                    Notes: notes || ''
+                    Notes: notes || '',
+                    PaymentMethod: paymentMethod,
+                    ETransferEmail: paymentMethod === 'E-Transfer' ? etransferEmail : ''
                 }
             };
 
@@ -898,6 +974,9 @@
         document.getElementById('notes').value = '';
         document.getElementById('travelDays').innerHTML = '';
         document.getElementById('expenseItems').innerHTML = '';
+        document.getElementById('payCheque').checked = true;
+        document.getElementById('etransferEmail').value = '';
+        toggleEtransfer();
         dayCount = 0;
         expenseCount = 0;
         addDay();
