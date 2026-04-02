@@ -1367,13 +1367,15 @@
             const churchListId = lists.value[0].id;
 
             let url = `https://graph.microsoft.com/v1.0/sites/${site.id}/lists/${churchListId}/items` +
-                      `?$expand=fields($select=Church)&$top=500`;
+                      `?$expand=fields&$top=500`;
             allChurches = [];
             while (url) {
                 const res = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
                 const data = await res.json();
                 data.value.forEach(item => {
-                    const name = item.fields?.Church;
+                    // Try common internal field name variants for a "Church" column
+                    const f = item.fields || {};
+                    const name = f.Church || f.Title || f.ChurchName || f.Church_x0020_Name || null;
                     if (name) allChurches.push(name);
                 });
                 url = data['@odata.nextLink'] || null;
