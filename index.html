@@ -1311,8 +1311,8 @@
             const encodedName = encodeURIComponent(vehicle.nickname);
             const itemsRes = await fetch(
                 `https://graph.microsoft.com/v1.0/sites/${site.id}/lists/${logListId}/items` +
-                `?$expand=fields($select=VehicleName,OdometerReading,TripDate)` +
-                `&$filter=fields/VehicleName eq '${encodedName}'` +
+                `?$expand=fields($select=Title,OdometerReading,TripDate)` +
+                `&$filter=fields/Title eq '${encodedName}'` +
                 `&$orderby=fields/TripDate desc&$top=1`,
                 { headers: { 'Authorization': `Bearer ${accessToken}` } });
             const items = await itemsRes.json();
@@ -1477,8 +1477,7 @@
             const logListId = lists.value[0].id;
 
             const fields = {
-                Title: `${driver} – ${date}`,
-                VehicleName: vehicle.nickname,
+                Title: vehicle.nickname,
                 VehicleDetails: vehicle.details,
                 Driver: driver,
                 TripDate: date,
