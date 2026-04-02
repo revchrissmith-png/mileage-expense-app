@@ -37,6 +37,15 @@
             top: 0;
             z-index: 100;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header img {
+            height: 40px;
+            width: auto;
+            flex-shrink: 0;
         }
 
         .header h1 {
@@ -450,8 +459,11 @@
 </script>
 
 <div class="header">
-    <h1>Mileage & Expense Claim</h1>
-    <div class="subtitle">Canadian Midwest District</div>
+    <img src="cmd-logo.png" alt="Canadian Midwest District">
+    <div>
+        <h1>Mileage & Expense Claim</h1>
+        <div class="subtitle">Canadian Midwest District</div>
+    </div>
 </div>
 
 <!-- Login Screen -->
