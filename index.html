@@ -1308,16 +1308,17 @@
             const lists = await listRes.json();
             const logListId = lists.value[0].id;
 
-            // Fetch all log items — Graph API $filter and $orderby on fields/
-            // subproperties are unreliable for SharePoint lists (stale search
-            // index, silently ignored sort). Filter and sort client-side instead.
+            // Fetch ALL log items — Graph API $filter and $orderby on fields/
+            // subproperties are unreliable for SharePoint lists. Do everything
+            // client-side. Use $expand=fields (no $select) to get all columns.
             let allItems = [];
             let nextLink = `https://graph.microsoft.com/v1.0/sites/${site.id}/lists/${logListId}/items` +
-                `?$expand=fields($select=Title,OdometerReading,TripDate)&$top=200`;
+                `?$expand=fields&$top=200`;
 
             while (nextLink) {
                 const res = await fetch(nextLink, {
-                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    headers: { 'Authorization': `Bearer ${accessToken}`,
+                               'Cache-Control': 'no-cache' },
                     cache: 'no-store'
                 });
                 const data = await res.json();
@@ -1325,10 +1326,23 @@
                 nextLink = data['@odata.nextLink'] || null;
             }
 
-            // Client-side filter by vehicle name
+            console.log(`[Mileage] Fetched ${allItems.length} total log items`);
+            console.log('[Mileage] Looking for vehicle:', vehicle.nickname);
+            console.log('[Mileage] All titles:', allItems.map(i => i.fields?.Title));
+
+            // Client-side filter by vehicle name (trim + case-insensitive)
+            const target = vehicle.nickname.trim().toLowerCase();
             const vehicleItems = allItems.filter(
-                item => item.fields && item.fields.Title === vehicle.nickname
+                item => item.fields &&
+                        (item.fields.Title || '').trim().toLowerCase() === target
             );
+
+            console.log(`[Mileage] Matched ${vehicleItems.length} items for "${vehicle.nickname}"`);
+            console.log('[Mileage] Matched items:', vehicleItems.map(i => ({
+                title: i.fields.Title,
+                date: i.fields.TripDate,
+                odometer: i.fields.OdometerReading
+            })));
 
             if (vehicleItems.length > 0) {
                 // Client-side sort by TripDate descending (newest first)
@@ -1337,6 +1351,8 @@
                     const dateB = b.fields.TripDate || '';
                     return dateB.localeCompare(dateA);
                 });
+                console.log('[Mileage] Most recent trip:', vehicleItems[0].fields.TripDate,
+                            'Odometer:', vehicleItems[0].fields.OdometerReading);
                 distPreviousOdometer = vehicleItems[0].fields.OdometerReading;
                 const lastDate = (vehicleItems[0].fields.TripDate || '').split('T')[0] || 'unknown date';
                 hint.textContent = `Previous reading: ${distPreviousOdometer.toLocaleString()} km (as of ${lastDate})`;
