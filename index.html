@@ -1308,16 +1308,22 @@
             const lists = await listRes.json();
             const logListId = lists.value[0].id;
 
-            const encodedName = encodeURIComponent(vehicle.nickname);
+            const filterName = vehicle.nickname.replace(/'/g, "''");
             const itemsRes = await fetch(
                 `https://graph.microsoft.com/v1.0/sites/${site.id}/lists/${logListId}/items` +
                 `?$expand=fields($select=Title,OdometerReading,TripDate)` +
-                `&$filter=fields/Title eq '${encodedName}'` +
-                `&$orderby=fields/TripDate desc&$top=1`,
+                `&$filter=fields/Title eq '${filterName}'` +
+                `&$top=50`,
                 { headers: { 'Authorization': `Bearer ${accessToken}` } });
             const items = await itemsRes.json();
 
             if (items.value && items.value.length > 0) {
+                // Sort client-side — Graph API $orderby on fields/ subproperties is unreliable
+                items.value.sort((a, b) => {
+                    const dateA = a.fields.TripDate || '';
+                    const dateB = b.fields.TripDate || '';
+                    return dateB.localeCompare(dateA);
+                });
                 distPreviousOdometer = items.value[0].fields.OdometerReading;
                 const lastDate = (items.value[0].fields.TripDate || '').split('T')[0] || 'unknown date';
                 hint.textContent = `Previous reading: ${distPreviousOdometer.toLocaleString()} km (as of ${lastDate})`;
