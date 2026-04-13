@@ -1326,23 +1326,12 @@
                 nextLink = data['@odata.nextLink'] || null;
             }
 
-            console.log(`[Mileage] Fetched ${allItems.length} total log items`);
-            console.log('[Mileage] Looking for vehicle:', vehicle.nickname);
-            console.log('[Mileage] All titles:', allItems.map(i => i.fields?.Title));
-
             // Client-side filter by vehicle name (trim + case-insensitive)
             const target = vehicle.nickname.trim().toLowerCase();
             const vehicleItems = allItems.filter(
                 item => item.fields &&
                         (item.fields.Title || '').trim().toLowerCase() === target
             );
-
-            console.log(`[Mileage] Matched ${vehicleItems.length} items for "${vehicle.nickname}"`);
-            console.log('[Mileage] Matched items:', vehicleItems.map(i => ({
-                title: i.fields.Title,
-                date: i.fields.TripDate,
-                odometer: i.fields.OdometerReading
-            })));
 
             if (vehicleItems.length > 0) {
                 // Client-side sort by TripDate descending (newest first)
@@ -1351,8 +1340,6 @@
                     const dateB = b.fields.TripDate || '';
                     return dateB.localeCompare(dateA);
                 });
-                console.log('[Mileage] Most recent trip:', vehicleItems[0].fields.TripDate,
-                            'Odometer:', vehicleItems[0].fields.OdometerReading);
                 distPreviousOdometer = vehicleItems[0].fields.OdometerReading;
                 const lastDate = (vehicleItems[0].fields.TripDate || '').split('T')[0] || 'unknown date';
                 hint.textContent = `Previous reading: ${distPreviousOdometer.toLocaleString()} km (as of ${lastDate})`;
