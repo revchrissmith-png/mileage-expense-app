@@ -656,6 +656,10 @@
             <div class="choice-title">District Vehicle</div>
             <div class="choice-desc">Log a trip in a district-owned vehicle</div>
         </button>
+        <button class="btn-vehicle-choice" onclick="choosePersonalUnclaimed()">
+            <div class="choice-title">Personal Vehicle (No Claim)</div>
+            <div class="choice-desc">Log a trip for the record — no mileage claim</div>
+        </button>
     </div>
 </div>
 
@@ -766,13 +770,18 @@
 <div id="districtForm" class="district-form" style="display:none;">
 
     <div class="card">
-        <div class="card-title">District Vehicle Trip Log</div>
+        <div class="card-title" id="distFormTitle">District Vehicle Trip Log</div>
 
-        <div class="field">
+        <div class="field" id="distVehicleField">
             <label>Vehicle</label>
             <select id="distVehicle" onchange="onDistrictVehicleChange()">
                 <option value="">— Select a vehicle —</option>
             </select>
+        </div>
+
+        <div class="field" id="distPersonalLabel" style="display:none;">
+            <label>Vehicle</label>
+            <div class="field-readonly">Personal Vehicle (No Claim)</div>
         </div>
 
         <div class="field">
@@ -785,17 +794,28 @@
             <input type="date" id="distDate">
         </div>
 
-        <div class="field">
-            <label>Odometer Reading (end of trip, km)</label>
-            <input type="number" id="distOdometer" inputmode="decimal"
-                   min="0" step="1" placeholder="e.g. 45230"
-                   oninput="updateKmDriven()">
-            <div class="odometer-hint" id="distOdometerHint">Select a vehicle to see the previous reading.</div>
+        <div id="distOdometerCard">
+            <div class="field">
+                <label>Odometer Reading (end of trip, km)</label>
+                <input type="number" id="distOdometer" inputmode="decimal"
+                       min="0" step="1" placeholder="e.g. 45230"
+                       oninput="updateKmDriven()">
+                <div class="odometer-hint" id="distOdometerHint">Select a vehicle to see the previous reading.</div>
+            </div>
+
+            <div class="field" style="margin-bottom:0;">
+                <label>Km Driven (calculated)</label>
+                <div class="field-readonly" id="distKmDriven">—</div>
+            </div>
         </div>
 
-        <div class="field" style="margin-bottom:0;">
-            <label>Km Driven (calculated)</label>
-            <div class="field-readonly" id="distKmDriven">—</div>
+        <div id="distManualKmCard" style="display:none;">
+            <div class="field" style="margin-bottom:0;">
+                <label>Km Driven (optional)</label>
+                <input type="number" id="distManualKm" inputmode="decimal"
+                       min="0" step="1" placeholder="e.g. 350">
+                <div class="odometer-hint">Enter approximate km if known — this is optional.</div>
+            </div>
         </div>
     </div>
 
@@ -919,6 +939,8 @@
     }
 
     // ========== VEHICLE ROUTING ==========
+    let isPersonalUnclaimed = false;
+
     function choosePersonalVehicle() {
         document.getElementById('vehicleSelectScreen').style.display = 'none';
         document.getElementById('mainForm').style.display = 'block';
@@ -927,6 +949,15 @@
     }
 
     async function chooseDistrictVehicle() {
+        isPersonalUnclaimed = false;
+        document.getElementById('vehicleSelectScreen').style.display = 'none';
+        document.getElementById('districtForm').style.display = 'block';
+        initDistrictForm();
+        await loadChurches();
+    }
+
+    async function choosePersonalUnclaimed() {
+        isPersonalUnclaimed = true;
         document.getElementById('vehicleSelectScreen').style.display = 'none';
         document.getElementById('districtForm').style.display = 'block';
         initDistrictForm();
@@ -1262,13 +1293,36 @@
     // ========== DISTRICT VEHICLE FORM ==========
     function initDistrictForm() {
         const sel = document.getElementById('distVehicle');
-        sel.innerHTML = '<option value="">— Select a vehicle —</option>';
-        DISTRICT_VEHICLES.forEach((v, i) => {
-            const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = v.nickname;
-            sel.appendChild(opt);
-        });
+        const vehicleField = document.getElementById('distVehicleField');
+        const personalLabel = document.getElementById('distPersonalLabel');
+        const odometerCard = document.getElementById('distOdometerCard');
+        const manualKmCard = document.getElementById('distManualKmCard');
+        const formTitle = document.getElementById('distFormTitle');
+
+        if (isPersonalUnclaimed) {
+            // Hide vehicle dropdown, show label; hide odometer, show optional manual km
+            vehicleField.style.display = 'none';
+            personalLabel.style.display = 'block';
+            odometerCard.style.display = 'none';
+            manualKmCard.style.display = 'block';
+            formTitle.textContent = 'Personal Vehicle Trip Log (No Claim)';
+            document.getElementById('distManualKm').value = '';
+        } else {
+            // Normal district vehicle mode
+            vehicleField.style.display = 'block';
+            personalLabel.style.display = 'none';
+            odometerCard.style.display = 'block';
+            manualKmCard.style.display = 'none';
+            formTitle.textContent = 'District Vehicle Trip Log';
+
+            sel.innerHTML = '<option value="">— Select a vehicle —</option>';
+            DISTRICT_VEHICLES.forEach((v, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = v.nickname;
+                sel.appendChild(opt);
+            });
+        }
 
         document.getElementById('distDriver').textContent = currentUser.name || currentUser.username;
         document.getElementById('distDate').valueAsDate = new Date();
@@ -1461,22 +1515,35 @@
 
     // ========== SUBMIT DISTRICT LOG ==========
     async function submitDistrictLog() {
-        const idx = document.getElementById('distVehicle').value;
-        const odometer = parseFloat(document.getElementById('distOdometer').value);
         const date = document.getElementById('distDate').value;
         const purpose = document.getElementById('distPurpose').value.trim();
-
-        if (idx === '') { showToast('Please select a vehicle.'); return; }
-        if (!date) { showToast('Please select a date.'); return; }
-        if (isNaN(odometer) || odometer <= 0) { showToast('Please enter the odometer reading.'); return; }
-        if (distPreviousOdometer !== null && odometer < distPreviousOdometer) {
-            showToast('Odometer reading is less than the previous recorded reading.'); return;
-        }
-
-        const vehicle = DISTRICT_VEHICLES[parseInt(idx)];
         const driver = currentUser.name || currentUser.username;
-        const kmDriven = distPreviousOdometer !== null ? (odometer - distPreviousOdometer) : null;
         const churchesStr = [...selectedChurches].join(', ');
+        let vehicleNickname, vehicleDetails, odometer, kmDriven;
+
+        if (!date) { showToast('Please select a date.'); return; }
+
+        if (isPersonalUnclaimed) {
+            vehicleNickname = 'Personal Vehicle (Unclaimed)';
+            vehicleDetails = '';
+            odometer = null;
+            const manualKm = parseFloat(document.getElementById('distManualKm').value);
+            kmDriven = (!isNaN(manualKm) && manualKm > 0) ? manualKm : null;
+        } else {
+            const idx = document.getElementById('distVehicle').value;
+            odometer = parseFloat(document.getElementById('distOdometer').value);
+
+            if (idx === '') { showToast('Please select a vehicle.'); return; }
+            if (isNaN(odometer) || odometer <= 0) { showToast('Please enter the odometer reading.'); return; }
+            if (distPreviousOdometer !== null && odometer < distPreviousOdometer) {
+                showToast('Odometer reading is less than the previous recorded reading.'); return;
+            }
+
+            const vehicle = DISTRICT_VEHICLES[parseInt(idx)];
+            vehicleNickname = vehicle.nickname;
+            vehicleDetails = vehicle.details;
+            kmDriven = distPreviousOdometer !== null ? (odometer - distPreviousOdometer) : null;
+        }
 
         const btn = document.getElementById('distSubmitBtn');
         btn.disabled = true;
@@ -1499,16 +1566,20 @@
             const logListId = lists.value[0].id;
 
             const fields = {
-                Title: vehicle.nickname,
-                VehicleDetails: vehicle.details,
+                Title: vehicleNickname,
+                VehicleDetails: vehicleDetails,
                 Driver: driver,
                 TripDate: date,
-                OdometerReading: odometer,
                 ChurchesVisited: churchesStr,
                 Purpose: purpose || '',
             };
+            if (odometer !== null) {
+                fields.OdometerReading = odometer;
+            }
             if (kmDriven !== null) {
                 fields.KmDriven = kmDriven;
+            }
+            if (distPreviousOdometer !== null) {
                 fields.PreviousOdometer = distPreviousOdometer;
             }
 
@@ -1530,7 +1601,9 @@
 
             document.getElementById('successFlowType').textContent = 'district';
             document.getElementById('successHeading').textContent = 'Trip Logged';
-            document.getElementById('successMessage').textContent = 'The district vehicle trip has been recorded.';
+            document.getElementById('successMessage').textContent = isPersonalUnclaimed
+                ? 'Your personal vehicle trip has been recorded (no mileage claim).'
+                : 'The district vehicle trip has been recorded.';
             document.getElementById('successBackBtn').textContent = 'Log Another Trip';
             document.getElementById('districtForm').style.display = 'none';
             document.getElementById('successScreen').style.display = 'flex';
@@ -1566,8 +1639,10 @@
     }
 
     function resetDistrictForm() {
+        isPersonalUnclaimed = false;
         document.getElementById('distVehicle').value = '';
         document.getElementById('distOdometer').value = '';
+        document.getElementById('distManualKm').value = '';
         document.getElementById('distPurpose').value = '';
         document.getElementById('distDate').valueAsDate = new Date();
         document.getElementById('distKmDriven').textContent = '—';
