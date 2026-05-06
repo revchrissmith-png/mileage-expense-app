@@ -1388,11 +1388,16 @@
             );
 
             if (vehicleItems.length > 0) {
-                // Client-side sort by TripDate descending (newest first)
+                // Client-side sort by TripDate descending (newest first).
+                // Tiebreak by OdometerReading desc — multi-stop days share one
+                // TripDate, so without this the "latest" reading flips arbitrarily
+                // based on Graph's return order.
                 vehicleItems.sort((a, b) => {
                     const dateA = a.fields.TripDate || '';
                     const dateB = b.fields.TripDate || '';
-                    return dateB.localeCompare(dateA);
+                    const dateCmp = dateB.localeCompare(dateA);
+                    if (dateCmp !== 0) return dateCmp;
+                    return (b.fields.OdometerReading || 0) - (a.fields.OdometerReading || 0);
                 });
                 distPreviousOdometer = vehicleItems[0].fields.OdometerReading;
                 const lastDate = (vehicleItems[0].fields.TripDate || '').split('T')[0] || 'unknown date';
