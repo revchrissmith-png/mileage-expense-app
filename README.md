@@ -136,3 +136,10 @@ After any code change, always complete the full cycle:
 1. **Test** — open the app in a mobile browser, verify the change works
 2. **Commit** — stage changed files and commit with a descriptive message
 3. **Push** — push to remote so GitHub Pages deploys
+
+---
+
+## Recent Changes
+
+### 2026-05-06
+- Fixed previous-odometer auto-fill on multi-stop driving days. The client-side sort used `TripDate` only, so when two list items shared a date the "latest" reading was non-deterministic (Graph return order). Now tiebreaks by `OdometerReading` desc — higher odo is by definition the later trip in the chain. Surfaced when Bernie's 2026-04-27 White Lightning entries (Winnipeg First Nations 71551 → Saskatoon New Life 72115) caused the form to auto-fill 71551 instead of 72115. Commit `7c1a97c`.
